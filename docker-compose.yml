@@ -1,0 +1,22 @@
+version: '3.7'
+
+services:
+    nginx:
+        image: nginx:1.17.4-alpine
+        ports:
+            - "8080:80"
+        links:
+            - php
+        networks:
+            - overlay
+        volumes:
+            - ./default.conf:/etc/nginx/conf.d/default.conf
+    php:
+        image: php:rc-fpm-alpine
+        networks:
+            - overlay
+        volumes:
+            - ./phpinfo.php:/var/www/html/phpinfo.php
+
+networks:
+    overlay:
