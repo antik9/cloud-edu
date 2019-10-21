@@ -44,14 +44,25 @@ func GetPicture(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
+		return
 	}
 	defer result.Body.Close()
 
-	buffer := make([]byte, *result.ContentLength)
-	result.Body.Read(buffer)
+	fullLength := *result.ContentLength
+	buffer := make([]byte, fullLength)
+
+	for fullLength > 0 {
+		n, err := result.Body.Read(buffer)
+		if err != nil {
+			break
+		}
+		fullLength -= int64(n)
+	}
+
 	original_image, _, err := image.Decode(bytes.NewReader(buffer))
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
+		return
 	}
 
 	writeImageWithTemplate(w, &original_image)
