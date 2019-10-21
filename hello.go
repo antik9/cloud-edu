@@ -49,14 +49,15 @@ func GetPicture(w http.ResponseWriter, r *http.Request) {
 	defer result.Body.Close()
 
 	fullLength := *result.ContentLength
+	var buckets int64
 	buffer := make([]byte, fullLength)
 
-	for fullLength > 0 {
-		n, err := result.Body.Read(buffer)
+	for buckets < fullLength {
+		n, err := result.Body.Read(buffer[buckets:])
 		if err != nil {
 			break
 		}
-		fullLength -= int64(n)
+		buckets += int64(n)
 	}
 
 	original_image, _, err := image.Decode(bytes.NewReader(buffer))
