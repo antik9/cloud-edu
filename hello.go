@@ -30,7 +30,7 @@ var db *sqlx.DB
 
 func init() {
 	_db, err := sqlx.Connect(
-		"postgres", "host=localhost user=student dbname=studentdb sslmode=disable",
+		"postgres", "host=localhost port=26257 user=student dbname=studentdb sslmode=disable",
 	)
 	if err != nil {
 		log.Fatal(err)
