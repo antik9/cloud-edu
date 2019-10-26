@@ -9,7 +9,6 @@ import (
 	"image"
 	"image/jpeg"
 	"log"
-	"net"
 	"net/http"
 	"time"
 
@@ -82,15 +81,14 @@ func GetPicture(w http.ResponseWriter, r *http.Request) {
 }
 
 func saveIpToDatabase(r *http.Request) {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	currentTime := time.Now().Format("2006-01-02 15:04:05")
-	db.MustExec(`
+	ip := r.Header.Get("X-FORWARDED-FOR")
+	if ip != "" {
+		currentTime := time.Now().Format("2006-01-02 15:04:05")
+		db.MustExec(`
 		INSERT INTO views (client_ip, view_date)
 		VALUES ($1, $2)`, ip, currentTime,
-	)
+		)
+	}
 }
 
 func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
@@ -113,6 +111,6 @@ func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
 func main() {
 	http.HandleFunc("/", GetPicture)
 	log.Fatal(
-		http.ListenAndServe(":8080", nil),
+		http.ListenAndServe(":8000", nil),
 	)
 }
