@@ -9,12 +9,16 @@ import (
 	"image"
 	"image/jpeg"
 	"log"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
 var ImageTemplate string = `
@@ -23,12 +27,20 @@ var ImageTemplate string = `
     <body><img src="data:image/jpg;base64,{{.Image}}"></body>
 </html>
 `
+var db *sqlx.DB
 
-func HelloWorld(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Hello World!")
+func init() {
+	_db, err := sqlx.Connect(
+		"postgres", "host=localhost user=student dbname=studentdb sslmode=disable",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	db = _db
 }
 
 func GetPicture(w http.ResponseWriter, r *http.Request) {
+	defer saveIpToDatabase(r)
 	sess := session.Must(
 		session.NewSession(
 			&aws.Config{
@@ -69,6 +81,18 @@ func GetPicture(w http.ResponseWriter, r *http.Request) {
 	writeImageWithTemplate(w, &original_image)
 }
 
+func saveIpToDatabase(r *http.Request) {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
+	db.MustExec(`
+		INSERT INTO views (client_ip, view_date)
+		VALUES ($1, $2)`, ip, currentTime,
+	)
+}
+
 func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
 	buffer := new(bytes.Buffer)
 	if err := jpeg.Encode(buffer, *img, nil); err != nil {
@@ -87,7 +111,6 @@ func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
 }
 
 func main() {
-	http.HandleFunc("/welcome", HelloWorld)
 	http.HandleFunc("/", GetPicture)
 	log.Fatal(
 		http.ListenAndServe(":8080", nil),

@@ -1,0 +1,53 @@
+- hosts: localhost
+  become: yes
+  tasks:
+  - name: Update apt manager
+    apt: update_cache=yes
+    tags: install
+  - name: Install packages
+    apt:
+      name: "{{ packages }}"
+      state: latest
+    vars:
+      packages:
+        - golang-go
+        - nginx
+        - unzip
+        - chrony
+        - awscli
+    tags: install
+  - name: Config chrony
+    copy: src=chrony.conf dest=/etc/chrony/chrony.conf
+    notify: restart chrony
+    tags: chrony
+  - name: Download CockroachDB
+    get_url:
+      url: "https://binaries.cockroachdb.com/cockroach-v19.1.5.linux-amd64.tgz"
+      dest: "/tmp/cockroach.tgz"
+    tags: cockroach
+  - name: Install CockroachDB
+    shell: tar -xzf /tmp/cockroach.tgz -C /usr/local/bin --strip 1
+    tags: cockroach
+  - name: Start CockroachDB
+    command: bash start_cockroachdb.sh
+    tags: cockroach
+  - name: Migrate Schema
+    command: bash migrate.sh
+    tags: migrate
+  - name: Download go packages
+    become_user: ubuntu
+    shell: go get "github.com/lib/pq" "github.com/aws/aws-sdk-go/aws" "github.com/jmoiron/sqlx"
+    tags: go
+  - name: Prepare NGINX configuration
+    copy: src=hello.conf dest=/etc/nginx/sites-enabled/default
+    notify: restart nginx
+    tags: nginx
+  - name: Start go server
+    become_user: ubuntu
+    command: bash start_server.sh
+    tags: go
+  handlers:
+  - name: restart chrony
+    service: name=chronyd state=restarted enabled=yes
+  - name: restart nginx
+    service: name=nginx state=restarted enabled=yes
